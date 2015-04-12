@@ -17,7 +17,24 @@
  * version 2 as published by the Free Software Foundation.
  */
 
+#include <Arduino.h>
 #include "MyTransport.h"
 
 MyTransport::MyTransport() {
 }
+
+#ifdef DEBUG
+void MyTransport::debugPrint(const char *fmt, ... ) {
+	char fmtBuffer[300];
+
+	va_list args;
+	va_start (args, fmt );
+	va_end (args);
+
+	vsnprintf_P(fmtBuffer, 299, fmt, args);
+
+	va_end (args);
+	Serial.print(fmtBuffer);
+	Serial.flush();
+}
+#endif

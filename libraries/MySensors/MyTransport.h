@@ -20,6 +20,7 @@
 #ifndef MyTransport_h
 #define MyTransport_h
 
+#include "MyConfig.h"
 #include <stdint.h>
 
 #ifdef DEBUG
@@ -66,6 +67,9 @@ public:
 	virtual uint8_t receive(void* data) = 0;
 	// powers down the radio
 	virtual void powerDown() = 0;
+	#ifdef DEBUG
+	void debugPrint(const char *fmt, ... );
+	#endif
 };
 
 #endif
