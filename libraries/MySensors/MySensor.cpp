@@ -53,11 +53,17 @@ MySensor::MySensor(MyTransport &_radio, MyHw &_hw
 #ifdef MY_SIGNING_FEATURE
 	, MySigning &_signer
 #endif
+#ifdef WITH_LEDS_BLINKING
+		, uint8_t _rx, uint8_t _tx, uint8_t _er, unsigned long _blink_period
+#endif
 	)
 	:
 	radio(_radio),
 #ifdef MY_SIGNING_FEATURE
 	signer(_signer),
+#endif
+#ifdef WITH_LEDS_BLINKING
+	pinRx(_rx), pinTx(_tx), pinEr(_er), ledBlinkPeriod(_blink_period),
 #endif
 #ifdef MY_OTA_FIRMWARE_FEATURE
  	flash(MY_OTA_FLASH_SS, MY_OTA_FLASH_JDECID),
@@ -90,6 +96,64 @@ bool MySensor::isValidFirmware() {
 
 #endif
 
+#ifdef WITH_LEDS_BLINKING
+void MySensor::handleLedsBlinking() {
+	static unsigned long next_time = millis() + ledBlinkPeriod;
+
+	// Just return if it is not the time...
+	// http://playground.arduino.cc/Code/TimingRollover
+	if ((long)(millis() - next_time) < 0)
+		return;
+	else
+		next_time += ledBlinkPeriod;
+
+	// do the actual blinking
+	if(countRx && countRx != 255) {
+		// switch led on
+		digitalWrite(pinRx, LOW);
+	}
+	else if(!countRx) {
+		// switching off
+		digitalWrite(pinRx, HIGH);
+	}
+	if(countRx != 255)
+		--countRx;
+
+	if(countTx && countTx != 255) {
+		// switch led on
+		digitalWrite(pinTx, LOW);
+	}
+	else if(!countTx) {
+		// switching off
+		digitalWrite(pinTx, HIGH);
+	}
+	if(countTx != 255)
+		--countTx;
+
+	if(countErr && countErr != 255) {
+		// switch led on
+		digitalWrite(pinEr, LOW);
+	}
+	else if(!countErr) {
+		// switching off
+		digitalWrite(pinEr, HIGH);
+	}
+	if(countErr != 255)
+		--countErr;
+}
+
+void MySensor::rxBlink(uint8_t cnt) {
+  if(countRx == 255) { countRx = cnt; }
+}
+
+void MySensor::txBlink(uint8_t cnt) {
+  if(countTx == 255) { countTx = cnt; }
+}
+
+void MySensor::errBlink(uint8_t cnt) {
+  if(countErr == 255) { countErr = cnt; }
+}
+#endif
 
 void MySensor::begin(void (*_msgCallback)(const MyMessage &), uint8_t _nodeId, boolean _repeaterMode, uint8_t _parentNodeId) {
 	hw_init();
@@ -109,6 +173,17 @@ void MySensor::begin(void (*_msgCallback)(const MyMessage &), uint8_t _nodeId, b
 #ifdef MY_SIGNING_FEATURE
 	// Read out the signing requirements from EEPROM
 	hw_readConfigBlock((void*)doSign, (void*)EEPROM_SIGNING_REQUIREMENT_TABLE_ADDRESS, sizeof(doSign));
+#endif
+
+#ifdef WITH_LEDS_BLINKING
+	// Setup led pins
+	pinMode(pinRx, OUTPUT);
+	pinMode(pinTx, OUTPUT);
+	pinMode(pinEr, OUTPUT);
+
+	digitalWrite(pinRx, LOW);
+	digitalWrite(pinTx, LOW);
+	digitalWrite(pinEr, LOW);
 #endif
 
 	if (isGateway) {
@@ -408,6 +483,11 @@ void MySensor::requestTime(void (* _timeCallback)(unsigned long)) {
 
 boolean MySensor::process() {
 	hw_watchdogReset();
+
+#ifdef WITH_LEDS_BLINKING
+	handleLedsBlinking();
+#endif
+
 	uint8_t to = 0;
 	if (!radio.available(&to))
 	{
